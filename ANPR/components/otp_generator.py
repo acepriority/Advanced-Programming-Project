@@ -13,7 +13,7 @@ def generate_otp(length=6):
 
 sender_email = 'sudaicejeymack@gmail.com'
 password = 'eskg uaxe bvtb miwr'
-receiver_email = 'mukwayamels@gmail.com'
+receiver_email = 'mugaggabenjie@gmail.com'
 
 
 subject = 'Account Verification'
