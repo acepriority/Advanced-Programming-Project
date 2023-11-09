@@ -1,27 +1,27 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import ResidencyProfile, UserProfile
+from .models import UsersProfile
 
 # Register your models here.
 
 
 # Define an inline admin class for the UserProfile model
 class UserProfileInline(admin.StackedInline):
-    model = UserProfile
+    model = UsersProfile
     can_delete = False
     verbose_name_plural = 'User Profiles'
 
 
-class ResidencyInline(admin.StackedInline):
+"""class ResidencyInline(admin.StackedInline):
     model = ResidencyProfile
     can_delete = False
-    verbose_name_plural = 'Residency Profile'
+    verbose_name_plural = 'Residency Profile'"""
 
 
 # Extend the UserAdmin to include the UserProfileInline
 class CustomUserAdmin(UserAdmin):
-    inlines = (UserProfileInline, ResidencyInline)
+    inlines = (UserProfileInline,)
 
 
 """@admin.register(ResidencyProfile)
