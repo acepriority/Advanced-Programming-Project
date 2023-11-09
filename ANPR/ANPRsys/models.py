@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 
 # Create your models here.
 
-class UserProfile(models.Model):
+class UsersProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     # Custom fields
     officer_id = models.CharField(max_length=15, unique=True)
@@ -13,12 +13,17 @@ class UserProfile(models.Model):
     sex = models.CharField(max_length=1)
     nin = models.CharField(max_length=14, unique=True)
     position = models.CharField(max_length=50)
+    country = models.CharField(max_length=255)
+    district_city = models.CharField(max_length=255)
+    county = models.CharField(max_length=255)
+    parish = models.CharField(max_length=255)
+    village = models.CharField(max_length=255)
 
     def __str__(self):
         return self.user.first_name + " " + self.user.last_name
 
 
-class ResidencyProfile(models.Model):
+"""class ResidencyProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE
         )
@@ -26,4 +31,4 @@ class ResidencyProfile(models.Model):
     district_city = models.CharField(max_length=255)
     county = models.CharField(max_length=255)
     parish = models.CharField(max_length=255)
-    village = models.CharField(max_length=255)
+    village = models.CharField(max_length=255)"""
