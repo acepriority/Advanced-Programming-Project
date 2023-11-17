@@ -1,0 +1,5 @@
+{% extends 'emailbase.html' %}
+{% block content %}
+    <h2>Confirm Account</h2>
+    <p>Your code is: <strong>{{otp}}</strong> expires in 5 minutes {{expiration_time}}</p>
+{% endblock %}
