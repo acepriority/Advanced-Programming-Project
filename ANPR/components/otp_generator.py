@@ -9,8 +9,9 @@ from django.template.loader import render_to_string
 class OTPGenerator:
 
     def __init__(
-            self, sender_email='sudaicejeymack@gmail.com',
-            password='eskg uaxe bvtb miwr'
+            self,
+            sender_email='sudaicejeymack@gmail.com',  # os.environ['EMAIL_ADDRESS']
+            password='eskg uaxe bvtb miwr'  # os.environ['EMAIL_PASSWORD']
             ):
         self.sender_email = sender_email
         self.password = password
@@ -35,7 +36,8 @@ class OTPGenerator:
         email_body = render_to_string('otpemail.html', {
             'subject': subject,
             'otp': otp,
-            'expiration_time': otp_expiration_time.strftime('%Y-%m-%d %H:%M:%S')
+            'expiration_time': otp_expiration_time.strftime(
+                '%Y-%m-%d %H:%M:%S')
         })
 
         em.set_content(f'', subtype='html')
@@ -50,7 +52,10 @@ class OTPGenerator:
                     as smtp
             ):
                 smtp.login(self.sender_email, self.password)
-                smtp.sendmail(self.sender_email, receiver_email, em.as_string())
+                smtp.sendmail(
+                    self.sender_email,
+                    receiver_email,
+                    em.as_string())
                 print(f'OTP email sent successfully to {receiver_email}.')
         except Exception as e:
             print(f'Error sending OTP email: {str(e)}')
