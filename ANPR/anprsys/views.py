@@ -33,6 +33,7 @@ def login_user(request):
     return render(request, 'login_user.html', {})
 
 
+@login_required(login_url='login_user')
 def user_profile(request):
     return render(request, 'user_profile.html', {})
 
@@ -93,8 +94,13 @@ def verify_email(request):
         try:
             user = User.objects.get(email=entered_email)
         except User.DoesNotExist:
-            messages.error(request, f'User with email {entered_email} not found.')
-            return render(request, 'your_error_template.html', {'error_message': f'User with email {entered_email} not found.'})
+            messages.error(
+                request, f'User with email {entered_email} not found.')
+            return render(
+                request, 'your_error_template.html',
+                {'error_message': f'User with email \
+                    {entered_email} not found.'}
+            )
 
         temp_password_generator = TempPasswordGenerator()
         temp_password_generator.send_temp_email(request, user.email)
@@ -130,7 +136,7 @@ def temp_validation(request):
         return render(request, 'temp_passwordpage.html', {})
     else:
         if sent_temp == entered_temp:
-            return render(request, 'user_profile.html', {})
+            return redirect('password_reset')
         else:
             messages.success(
                 request, 'Invalid temporary password'
