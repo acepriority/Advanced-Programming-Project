@@ -5,7 +5,28 @@
 <div class="col-md-6 offset-md-3">
 {% if user.is_authenticated %}
 
-<h1>ANPR Homepage</h1>
+<div class="container">
+  <div class="jumbotron mt-4">
+      <h1 class="display-5">Welcome to the ANPR System</h1>
+      <p class="lead">Upload an image to perform Automatic Number Plate Recognition.</p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" action="{% url 'process_image' %}" class="mt-4">
+      {% csrf_token %}
+      <div class="form-group">
+          <label for="image">Upload Image:</label>
+          <input type="file" class="form-control-file" name="image" accept="image/*" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+
+  {% if result %}
+      <div class="mt-4">
+          <h2>ANPR Result:</h2>
+          <p>{{ result }}</p>
+      </div>
+  {% endif %}
+</div>
 
 {% else %}
 
