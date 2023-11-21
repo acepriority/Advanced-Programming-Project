@@ -7,30 +7,83 @@ from django.contrib.auth.decorators import login_required
 from components.otp_generator import OTPGenerator
 from components.temp_password_generator import TempPasswordGenerator
 from datetime import datetime
+from django.http import HttpResponse
+from django.core.cache import cache
+from django.utils import timezone
+from django.http import JsonResponse
+import requests
 
 
 @unauthenticated_user
 def login_user(request):
+    MAX_LOGIN_ATTEMPTS = 3
+    LOCKOUT_DURATION = 300
     if request.method == "POST":
         police_id = request.POST.get('police_id')
         password = request.POST.get('password')
+        lockout_key = f'lockout_{police_id}'
+        lockout_time = cache.get(lockout_key, 0)
 
-        user = authenticate(request, police_id=police_id, password=password)
+        if lockout_time > timezone.now().timestamp():
+            remaining_lockout_time = int(
+                lockout_time - timezone.now().timestamp()
+                )
+            messages.error(
+                request,
+                f'Account locked\
+                .Try again after {int(remaining_lockout_time//60)} mins\
+                    {int(remaining_lockout_time%60)} secs.'
+                )
+            return render(request, 'login_user.html')
 
-        if user is not None:
-            login(request, user)
+        else:
+            user = authenticate(
+                request,
+                police_id=police_id,
+                password=password
+                )
+            if user is not None:
+                login(request, user)
 
-            if police_id == password:
-                otp_generator = OTPGenerator()
-                otp_generator.send_otp_email(request, user.email)
-                messages.success(
-                    request, 'An otp has been sent to your email'
-                    )
-                return render(request, "otppage.html")
+                if police_id == password:
+                    otp_generator = OTPGenerator()
+                    otp_generator.send_otp_email(request, user.email)
+                    messages.success(
+                        request, 'An otp has been sent to your email'
+                        )
+                    return render(request, "otppage.html")
+                else:
+                    messages.success(request, 'You have Been logged In!')
+                    cache.delete(lockout_key)
+                    return redirect('home')
             else:
-                messages.success(request, 'You have Been logged In!')
-                return render(request, 'user_profile.html', {})
-    return render(request, 'login_user.html', {})
+                login_attempts_key = f'login_attempts_{police_id}'
+                login_attempts = cache.get(login_attempts_key, 0) + 1
+                cache.set(
+                    login_attempts_key,
+                    login_attempts,
+                    timeout=LOCKOUT_DURATION
+                    )
+
+                if login_attempts >= MAX_LOGIN_ATTEMPTS:
+                    cache.set(
+                        lockout_key,
+                        timezone.now().timestamp() + LOCKOUT_DURATION,
+                        timeout=LOCKOUT_DURATION
+                        )
+                    messages.error(
+                        request,
+                        f'Account locked\
+                        . Try again after {int(LOCKOUT_DURATION // 60)} min\
+                        {int(LOCKOUT_DURATION % 60)} secs.'
+                        )
+                    return render(request, 'login_user.html', {})
+                else:
+                    messages.error(
+                        request, 'Invalid credentials. Please try again.'
+                        )
+                    return render(request, 'login_user.html')
+    return render(request, 'login_user.html')
 
 
 @login_required(login_url='login_user')
@@ -47,7 +100,7 @@ def logout_user(request):
 
 @login_required(login_url='login_user')
 def home(request):
-    return render(request, 'user_profile.html', {})
+    return render(request, 'home.html', {})
 
 
 @login_required(login_url='login_user')
@@ -142,3 +195,34 @@ def temp_validation(request):
                 request, 'Invalid temporary password'
             )
             return render(request, 'temp_passwordpage.html', {})
+
+
+@login_required(login_url='login_user')
+def process_image(request):
+    if request.method == 'POST':
+        image_file = request.FILES.get('image')
+
+        if image_file:
+            api_url = 'http://localhost:8080/predict'
+
+            try:
+                files = {'file': (image_file.name, image_file.read())}
+                response = requests.post(api_url, files=files)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    return render(request, 'home.html', {'result': result})
+
+                else:
+                    error_message = f"Error:\
+                    {response.status_code} - {response.text}"
+                    return HttpResponse(f"API Error: {error_message}")
+
+            except Exception as e:
+                return HttpResponse(f"Error: {str(e)}")
+    return render(request, 'home.html')
+
+
+@login_required(login_url='accounts/login')
+def keep_alive(request):
+    return JsonResponse({'status': 'ok'})

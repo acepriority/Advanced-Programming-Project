@@ -8,6 +8,10 @@ urlpatterns = [
         views.home,
         name='home'),
     path(
+        'process_image/',
+        views.process_image,
+        name='process_image'),
+    path(
         'logout/',
         views.logout_user,
         name='logout'),
@@ -20,15 +24,15 @@ urlpatterns = [
         views.user_profile,
         name='user_profile'),
     path(
-        'email_check',
+        'email_check/',
         views.email_check,
         name='email_check'),
     path(
-        'verify_email',
+        'verify_email/',
         views.verify_email,
         name='verify_email'),
     path(
-        'temp_password',
+        'temp_password/',
         views.temp_password,
         name='temp_password'),
     path(
@@ -63,4 +67,8 @@ urlpatterns = [
         'reset/done/',
         auth_views.PasswordResetCompleteView.as_view(),
         name='password_reset_complete'),
+    path(
+        'keep-alive/',
+        views.keep_alive,
+        name='keep_alive'),
 ]
