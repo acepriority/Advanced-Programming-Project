@@ -12,9 +12,9 @@ urlpatterns = [
         views.logout_user,
         name='logout'),
     path(
-        'login/',
+        'accounts/login/',
         views.login_user,
-        name='login_user'),
+        name='login'),
     path(
         'profile/',
         views.user_profile,
@@ -63,4 +63,5 @@ urlpatterns = [
         'reset/done/',
         auth_views.PasswordResetCompleteView.as_view(),
         name='password_reset_complete'),
+    path('keep-alive/', views.keep_alive, name='keep_alive'),
 ]

@@ -47,7 +47,7 @@
         <div class="container-lg">
             <div class="row justify-content-center my-5">
                 <div class="col-lg-4">
-                    <form action="{% url 'login_user' %}" method="post">
+                    <form action="{% url 'login' %}" method="post">
                         {% csrf_token %}
 
                         {% if form.errors %}
