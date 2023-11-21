@@ -45,10 +45,10 @@ function initializeInactivityCheck() {
     function showConfirmationMessage() {
         const confirmationMessage = document.createElement('div');
         confirmationMessage.innerHTML = `
-            <div id="confirmation-message" style="position: fixed; top: 10px; left: 10px; background-color: #f0f0f0; padding: 10px; border: 1px solid #ccc;">
-                <p>Are you still there? Your session will expire soon.</p>
-                <button onclick="confirmSession()">Yes</button>
-                <button onclick="logoutAndClose()">No</button>
+            <div id="confirmation-message" style="position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%); background-color: #f0f0f0; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); text-align: center;">
+                <p style="margin-bottom: 10px; font-size: 16px;">Are you still there? Your session will expire soon.</p>
+                <button onclick="confirmSession()" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Yes</button>
+                <button onclick="logoutAndClose()" style="padding: 10px 20px; background-color: #FF4D4D; color: white; border: none; border-radius: 5px; cursor: pointer;">No</button>
             </div>
         `;
         document.body.appendChild(confirmationMessage);
