@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from anprsys.models import User
+from anprsys.models import User, UsersProfile
 from anprsys.decorators import unauthenticated_user
 from django.contrib.auth.decorators import login_required
 from components.otp_generator import OTPGenerator
@@ -32,16 +32,30 @@ def login_user(request):
                 )
             messages.error(
                 request,
-                f'Account locked.Try again after {int(remaining_lockout_time//60)}minutes {int(remaining_lockout_time%60)} seconds.'
+                f'Account locked.Try again after\
+                    {int(remaining_lockout_time//60)}minutes\
+                    {int(remaining_lockout_time%60)} seconds.'
                 )
             return render(request, 'login_user.html')
 
         else:
+            try:
+                UsersProfile.objects.get(police_id=police_id)
+
+            except UsersProfile.DoesNotExist:
+                # User profile does not exist
+                messages.error(
+                    request,
+                    'Invalid credentials. Please try again.'
+                    )
+                return render(request, 'login_user.html')
+
             user = authenticate(
                 request,
                 police_id=police_id,
                 password=password
                 )
+
             if user is not None:
                 login(request, user)
 
@@ -75,7 +89,9 @@ def login_user(request):
                         )
                     messages.error(
                         request,
-                        f'Account locked. Try again after {int(LOCKOUT_DURATION // 60)}minutes {int(LOCKOUT_DURATION % 60)} seconds.'
+                        f'Account locked. Try again after\
+                            {int(LOCKOUT_DURATION // 60)}minutes\
+                            {int(LOCKOUT_DURATION % 60)} seconds.'
                         )
                     return render(request, 'login_user.html', {})
                 else:
