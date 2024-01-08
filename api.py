@@ -26,6 +26,7 @@ app.add_middleware(
 IMAGE_SHAPE = (224, 224)
 ORIGINAL_IMAGE_PATH = "original_image.png"
 NORMALIZED_IMAGE_PATH = "normalized_image.png"
+NORMALIZED_IMAGE_WITH_BBX_PATH = "normalized_image_bbx.png"
 ROI_IMAGE_PATH = "roi_image.png"
 
 logging.basicConfig(level=logging.INFO)
@@ -42,8 +43,10 @@ def load_model(model_path):
     """
     return tf.keras.models.load_model(model_path)
 
+
 model_path = r'C:\Users\T480\Desktop\anpr\anpr_model.h5'
 model = load_model(model_path)
+
 
 def read_image(image_encoded):
     """
@@ -100,7 +103,7 @@ def process_image_pil(pil_image):
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 
-def object_detection(unchanged_image, norm_image):
+def object_detection(norm_image):
     """
     Perform object detection on the normalized image.
 
@@ -111,6 +114,7 @@ def object_detection(unchanged_image, norm_image):
     Returns:
         tuple: Tuple containing the image with bounding box and object coordinates.
     """
+
     try:
         h, w, d = norm_image.shape
         image = norm_image.reshape(1, 224, 224, 3)
@@ -120,19 +124,35 @@ def object_detection(unchanged_image, norm_image):
         coords = coords * denorm
         coords = coords.astype(np.int32)
 
-        xmin, xmax, ymin, ymax = coords[0]
-        pt1 = (xmin, ymin)
-        pt2 = (xmax, ymax)
-        print(pt1, pt2)
-        original_copy_with_bbx = cv2.rectangle(unchanged_image, pt1, pt2, (0, 255, 0), 3)
-
-        return original_copy_with_bbx, coords
+        return coords
     except Exception as e:
         logging.error(f"Error in object detection: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error in object detection: {str(e)}")
 
 
-def extract_roi(original_image, coords):
+def draw_bounding_box(image, coords):
+    """
+    Draw bounding box on the image using provided coordinates.
+
+    Args:
+        image (numpy.ndarray): Input image.
+        coords (numpy.ndarray): Object coordinates.
+
+    Returns:
+        numpy.ndarray: Image with bounding box.
+    """
+
+    try:
+        xmin, xmax, ymin, ymax = coords[0]
+        pt1 = (xmin, ymin)
+        pt2 = (xmax, ymax)
+        return cv2.rectangle(image, pt1, pt2, (0, 255, 0), 3)
+    except Exception as e:
+        logging.error(f"Error drawing bounding box: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error drawing bounding box: {str(e)}")
+
+
+def extract_roi(unchanged_image, coords):
     """
     Extract the Region of Interest (ROI) from the original image using provided coordinates.
 
@@ -143,9 +163,10 @@ def extract_roi(original_image, coords):
     Returns:
         numpy.ndarray: Extracted ROI image.
     """
+
     try:
         xmin, xmax, ymin, ymax = coords[0]
-        roi = original_image[ymin:ymax, xmin:xmax]
+        roi = unchanged_image[ymin:ymax, xmin:xmax]
 
         return roi
     except Exception as e:
@@ -163,6 +184,7 @@ def ocr_text(roi_image):
     Returns:
         list: List of detected texts.
     """
+
     try:
         reader = easyocr.Reader(['en'])
         result = reader.readtext(roi_image)
@@ -184,24 +206,32 @@ async def predict(file: UploadFile = File(...)):
     Returns:
         StreamingResponse: Predicted image with object detection.
     """
+
     try:
         pil_image = read_image(await file.read())
         original_image, normalized_image = process_image_pil(pil_image)
-        
-        logging.info(f"Input Image Shape: {original_image.shape}")
-        original_copy_with_bbx, coords = object_detection(original_image, normalized_image)
-
-        roi_image = extract_roi(original_copy_with_bbx, coords)
-
+        logging.info(f"Input Image Shape: {pil_image.shape}")
+        coords = object_detection(normalized_image)
+        original_image_with_bbx = draw_bounding_box(original_image.copy(), coords)
+        normalized_image_with_bbx = draw_bounding_box(normalized_image.copy(), coords)
+        roi_image = extract_roi(original_image_with_bbx, coords)
         ocr_result = ocr_text(roi_image)
-        print("OCR Result:", ocr_result)
+        logging.info(f"OCR Result: {ocr_result}")
+
+        cv2.imwrite(ORIGINAL_IMAGE_PATH, cv2.cvtColor(original_image, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(NORMALIZED_IMAGE_PATH, cv2.cvtColor(normalized_image, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(NORMALIZED_IMAGE_WITH_BBX_PATH, cv2.cvtColor(normalized_image_with_bbx, cv2.COLOR_RGB2BGR))
 
         original_image_base64 = base64.b64encode(cv2.imencode('.png', original_image)[1].tobytes()).decode('utf-8')
-        original_copy_with_bbx_base64 = base64.b64encode(cv2.imencode('.png', original_copy_with_bbx)[1].tobytes()).decode('utf-8')
+        normalized_image_base64 = base64.b64encode(cv2.imencode('.png', normalized_image)[1].tobytes()).decode('utf-8')
+        normalized_image_with_bbx_base64 = base64.b64encode(cv2.imencode('.png', normalized_image_with_bbx)[1].tobytes()).decode('utf-8')
+        original_copy_with_bbx_base64 = base64.b64encode(cv2.imencode('.png', original_image_with_bbx)[1].tobytes()).decode('utf-8')
         roi_image_base64 = base64.b64encode(cv2.imencode('.png', roi_image)[1].tobytes()).decode('utf-8')
 
         return {
             "original_image": original_image_base64,
+            "normalized_image": normalized_image_base64,
+            "normalized_image_with_bbx": normalized_image_with_bbx_base64,
             "original_copy_with_bbx": original_copy_with_bbx_base64,
             "roi_image": roi_image_base64,
             "ocr_results": ocr_result
