@@ -8,8 +8,10 @@ from PIL import Image
 import numpy as np
 from io import BytesIO
 import tensorflow as tf
+import easyocr
 import io
 import logging
+import base64
 
 app = FastAPI()
 
@@ -24,6 +26,7 @@ app.add_middleware(
 IMAGE_SHAPE = (224, 224)
 ORIGINAL_IMAGE_PATH = "original_image.png"
 NORMALIZED_IMAGE_PATH = "normalized_image.png"
+ROI_IMAGE_PATH = "roi_image.png"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -61,6 +64,7 @@ def read_image(image_encoded):
     except (PIL.UnidentifiedImageError, cv2.error) as e:
         logging.error(f"Error reading image: {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid image format")
+
 
 def process_image_pil(pil_image):
     """
@@ -128,6 +132,47 @@ def object_detection(unchanged_image, norm_image):
         raise HTTPException(status_code=500, detail=f"Error in object detection: {str(e)}")
 
 
+def extract_roi(original_image, coords):
+    """
+    Extract the Region of Interest (ROI) from the original image using provided coordinates.
+
+    Args:
+        original_image (numpy.ndarray): Original image.
+        coords (numpy.ndarray): Object coordinates.
+
+    Returns:
+        numpy.ndarray: Extracted ROI image.
+    """
+    try:
+        xmin, xmax, ymin, ymax = coords[0]
+        roi = original_image[ymin:ymax, xmin:xmax]
+
+        return roi
+    except Exception as e:
+        logging.error(f"Error extracting ROI: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error extracting ROI: {str(e)}")
+
+
+def ocr_text(roi_image):
+    """
+    Perform Optical Character Recognition (OCR) on the ROI image.
+
+    Args:
+        roi_image (numpy.ndarray): ROI image.
+
+    Returns:
+        list: List of detected texts.
+    """
+    try:
+        reader = easyocr.Reader(['en'])
+        result = reader.readtext(roi_image)
+
+        return [detection[1] for detection in result]
+    except Exception as e:
+        logging.error(f"Error in OCR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error in OCR: {str(e)}")
+
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     """
@@ -146,15 +191,24 @@ async def predict(file: UploadFile = File(...)):
         logging.info(f"Input Image Shape: {original_image.shape}")
         original_copy_with_bbx, coords = object_detection(original_image, normalized_image)
 
-        cv2.imwrite("original_image.png", cv2.cvtColor(original_image, cv2.COLOR_RGB2BGR))
-        cv2.imwrite(NORMALIZED_IMAGE_PATH, cv2.cvtColor(normalized_image, cv2.COLOR_RGB2BGR))
-        cv2.imwrite("result_image_with_bbox.png", cv2.cvtColor(original_copy_with_bbx, cv2.COLOR_RGB2BGR))
+        roi_image = extract_roi(original_copy_with_bbx, coords)
 
-        result_image_bytes = cv2.imencode('.png', original_copy_with_bbx)[1].tobytes()
-        return StreamingResponse(io.BytesIO(result_image_bytes), media_type="image/png")
+        ocr_result = ocr_text(roi_image)
+        print("OCR Result:", ocr_result)
+
+        original_image_base64 = base64.b64encode(cv2.imencode('.png', original_image)[1].tobytes()).decode('utf-8')
+        original_copy_with_bbx_base64 = base64.b64encode(cv2.imencode('.png', original_copy_with_bbx)[1].tobytes()).decode('utf-8')
+        roi_image_base64 = base64.b64encode(cv2.imencode('.png', roi_image)[1].tobytes()).decode('utf-8')
+
+        return {
+            "original_image": original_image_base64,
+            "original_copy_with_bbx": original_copy_with_bbx_base64,
+            "roi_image": roi_image_base64,
+            "ocr_results": ocr_result
+        }
 
     except HTTPException as http_exc:
-        raise http_exc
+        raise http_exc 
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
